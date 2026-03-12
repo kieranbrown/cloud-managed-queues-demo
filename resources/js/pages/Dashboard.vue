@@ -351,7 +351,7 @@ onUnmounted(() => stopPolling());
                         :class="batchId === batch.id ? 'bg-zinc-800 text-white' : 'text-zinc-400'"
                         @click="selectBatch(batch.id)"
                     >
-                        <span class="font-mono text-xs">{{ batch.id.slice(0, 12) }}...</span>
+                        <span class="font-mono text-xs">{{ batch.id }}</span>
                         <span class="flex items-center gap-3 text-xs">
                             <span class="text-zinc-500">{{ batch.jobCount }} jobs</span>
                             <span class="text-violet-400/70">{{ batch.peakWorkers }} {{ batch.peakWorkers === 1 ? 'worker' : 'workers' }}</span>

@@ -7,6 +7,7 @@ use App\Models\JobMetric;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -43,7 +44,9 @@ class DashboardController
                 'totalDurationMs' => $completed->count() > 0
                     ? round(($completed->max('completed_at') - $batchDispatchedAt) * 1000)
                     : null,
-                'activeWorkers' => $processing->pluck('worker_id')->filter()->unique()->count(),
+                'activeWorkers' => DB::table('worker_heartbeats')
+                    ->where('last_seen_at', '>=', now()->subSeconds(10))
+                    ->count(),
                 'peakWorkers' => $this->calculatePeakConcurrency($metrics),
                 'uniqueWorkers' => $metrics->pluck('worker_id')->filter()->unique()->count(),
                 'jobsPerSecond' => $completed->count() > 0 && ($completed->max('completed_at') - $batchDispatchedAt) > 0
