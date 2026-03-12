@@ -58,7 +58,7 @@ class DashboardController
                 'status' => $m->completed_at ? 'completed' : ($m->picked_up_at ? 'processing' : 'pending'),
             ])->values(),
             'recentBatches' => JobMetric::query()
-                ->selectRaw('batch_id, count(*) as job_count, min(dispatched_at) as dispatched_at')
+                ->selectRaw('batch_id, count(*) as job_count, count(distinct worker_id) as worker_count, min(dispatched_at) as dispatched_at')
                 ->groupBy('batch_id')
                 ->orderByDesc('dispatched_at')
                 ->limit(10)
@@ -66,6 +66,7 @@ class DashboardController
                 ->map(fn ($b) => [
                     'id' => $b->batch_id,
                     'jobCount' => $b->job_count,
+                    'workerCount' => $b->worker_count,
                     'dispatchedAt' => date('H:i:s', (int) $b->dispatched_at),
                 ]),
         ]);
