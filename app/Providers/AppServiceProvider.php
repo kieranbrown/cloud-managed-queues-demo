@@ -41,10 +41,9 @@ class AppServiceProvider extends ServiceProvider
             $lastHeartbeat = $now;
             $workerId = gethostname().':'.getmypid();
 
-            DB::table('worker_heartbeats')->upsert(
-                ['worker_id' => $workerId, 'queue' => $event->queue, 'last_seen_at' => now()],
-                ['worker_id'],
-                ['queue', 'last_seen_at'],
+            DB::table('worker_heartbeats')->updateOrInsert(
+                ['worker_id' => $workerId],
+                ['queue' => $event->queue, 'last_seen_at' => now()],
             );
         });
     }
