@@ -30,7 +30,7 @@ interface Stats {
 interface Batch {
     id: string;
     jobCount: number;
-    peakWorkers: number;
+    uniqueWorkers: number;
     dispatchedAt: string;
 }
 
@@ -360,7 +360,7 @@ onUnmounted(() => stopPolling());
                         <span class="font-mono text-xs">{{ batch.id }}</span>
                         <span class="flex items-center gap-3 text-xs">
                             <span class="text-zinc-500">{{ batch.jobCount }} jobs</span>
-                            <span class="text-violet-400/70">{{ batch.peakWorkers }} {{ batch.peakWorkers === 1 ? 'worker' : 'workers' }}</span>
+                            <span class="text-violet-400/70">{{ batch.uniqueWorkers }} {{ batch.uniqueWorkers === 1 ? 'worker' : 'workers' }}</span>
                             <span class="text-zinc-600">{{ batch.dispatchedAt }}</span>
                         </span>
                     </button>

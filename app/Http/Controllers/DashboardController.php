@@ -146,27 +146,21 @@ class DashboardController
     }
 
     /**
-     * @return Collection<int, array{id: string, jobCount: int, peakWorkers: int, dispatchedAt: string}>
+     * @return Collection<int, array{id: string, jobCount: int, uniqueWorkers: int, dispatchedAt: string}>
      */
     private function getRecentBatches(): Collection
     {
         $batchIds = JobMetric::query()
-            ->selectRaw('batch_id, count(*) as job_count, min(dispatched_at) as dispatched_at')
+            ->selectRaw('batch_id, count(*) as job_count, count(distinct worker_id) as unique_workers, min(dispatched_at) as dispatched_at')
             ->groupBy('batch_id')
             ->orderByDesc('dispatched_at')
             ->limit(10)
             ->get();
 
-        $allMetrics = JobMetric::query()
-            ->whereIn('batch_id', $batchIds->pluck('batch_id'))
-            ->whereNotNull('picked_up_at')
-            ->get()
-            ->groupBy('batch_id');
-
         return $batchIds->map(fn ($b) => [
             'id' => $b->batch_id,
             'jobCount' => $b->job_count,
-            'peakWorkers' => $this->calculatePeakConcurrency($allMetrics->get($b->batch_id, collect())),
+            'uniqueWorkers' => (int) $b->unique_workers,
             'dispatchedAt' => date('H:i:s', (int) $b->dispatched_at),
         ]);
     }
