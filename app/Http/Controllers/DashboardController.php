@@ -6,6 +6,7 @@ use App\Jobs\DemoJob;
 use App\Models\JobMetric;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -42,6 +43,8 @@ class DashboardController
                 'totalDurationMs' => $completed->count() > 0
                     ? round(($completed->max('completed_at') - $batchDispatchedAt) * 1000)
                     : null,
+                'activeWorkers' => $processing->pluck('worker_id')->filter()->unique()->count(),
+                'peakWorkers' => $this->calculatePeakConcurrency($metrics),
                 'uniqueWorkers' => $metrics->pluck('worker_id')->filter()->unique()->count(),
                 'jobsPerSecond' => $completed->count() > 0 && ($completed->max('completed_at') - $batchDispatchedAt) > 0
                     ? round($completed->count() / ($completed->max('completed_at') - $batchDispatchedAt), 1)
@@ -57,18 +60,7 @@ class DashboardController
                 'endMs' => $m->completed_at ? round(($m->completed_at - $batchDispatchedAt) * 1000) : null,
                 'status' => $m->completed_at ? 'completed' : ($m->picked_up_at ? 'processing' : 'pending'),
             ])->values(),
-            'recentBatches' => JobMetric::query()
-                ->selectRaw('batch_id, count(*) as job_count, count(distinct worker_id) as worker_count, min(dispatched_at) as dispatched_at')
-                ->groupBy('batch_id')
-                ->orderByDesc('dispatched_at')
-                ->limit(10)
-                ->get()
-                ->map(fn ($b) => [
-                    'id' => $b->batch_id,
-                    'jobCount' => $b->job_count,
-                    'workerCount' => $b->worker_count,
-                    'dispatchedAt' => date('H:i:s', (int) $b->dispatched_at),
-                ]),
+            'recentBatches' => $this->getRecentBatches(),
         ]);
     }
 
@@ -102,5 +94,62 @@ class DashboardController
         }
 
         return redirect()->route('dashboard', ['batch' => $batchId]);
+    }
+
+    /**
+     * Calculate peak concurrent workers using a sweep line algorithm.
+     *
+     * @param  Collection<int, JobMetric>  $metrics
+     */
+    private function calculatePeakConcurrency(Collection $metrics): int
+    {
+        $events = [];
+
+        foreach ($metrics as $metric) {
+            if ($metric->picked_up_at === null) {
+                continue;
+            }
+
+            $events[] = ['time' => $metric->picked_up_at, 'type' => 1];
+            $events[] = ['time' => $metric->completed_at ?? PHP_FLOAT_MAX, 'type' => -1];
+        }
+
+        usort($events, fn ($a, $b) => $a['time'] <=> $b['time'] ?: $a['type'] <=> $b['type']);
+
+        $peak = 0;
+        $current = 0;
+
+        foreach ($events as $event) {
+            $current += $event['type'];
+            $peak = max($peak, $current);
+        }
+
+        return $peak;
+    }
+
+    /**
+     * @return Collection<int, array{id: string, jobCount: int, peakWorkers: int, dispatchedAt: string}>
+     */
+    private function getRecentBatches(): Collection
+    {
+        $batchIds = JobMetric::query()
+            ->selectRaw('batch_id, count(*) as job_count, min(dispatched_at) as dispatched_at')
+            ->groupBy('batch_id')
+            ->orderByDesc('dispatched_at')
+            ->limit(10)
+            ->get();
+
+        $allMetrics = JobMetric::query()
+            ->whereIn('batch_id', $batchIds->pluck('batch_id'))
+            ->whereNotNull('picked_up_at')
+            ->get()
+            ->groupBy('batch_id');
+
+        return $batchIds->map(fn ($b) => [
+            'id' => $b->batch_id,
+            'jobCount' => $b->job_count,
+            'peakWorkers' => $this->calculatePeakConcurrency($allMetrics->get($b->batch_id, collect())),
+            'dispatchedAt' => date('H:i:s', (int) $b->dispatched_at),
+        ]);
     }
 }

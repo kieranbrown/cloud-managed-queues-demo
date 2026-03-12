@@ -21,6 +21,8 @@ interface Stats {
     avgWaitMs: number | null;
     avgProcessMs: number | null;
     totalDurationMs: number | null;
+    activeWorkers: number;
+    peakWorkers: number;
     uniqueWorkers: number;
     jobsPerSecond: number | null;
 }
@@ -28,7 +30,7 @@ interface Stats {
 interface Batch {
     id: string;
     jobCount: number;
-    workerCount: number;
+    peakWorkers: number;
     dispatchedAt: string;
 }
 
@@ -207,7 +209,11 @@ onUnmounted(() => stopPolling());
                 </div>
                 <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
                     <div class="text-xs font-medium text-zinc-500">Workers</div>
-                    <div class="mt-1 font-mono text-2xl font-bold text-violet-400">{{ stats.uniqueWorkers }}</div>
+                    <div class="mt-1 font-mono text-2xl font-bold text-violet-400">{{ stats.peakWorkers }}</div>
+                    <div class="mt-1 flex items-center gap-2 text-[10px] text-zinc-500">
+                        <span v-if="stats.activeWorkers > 0" class="text-emerald-400">{{ stats.activeWorkers }} active</span>
+                        <span>{{ stats.uniqueWorkers }} total</span>
+                    </div>
                 </div>
                 <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
                     <div class="text-xs font-medium text-zinc-500">Avg Wait</div>
@@ -348,7 +354,7 @@ onUnmounted(() => stopPolling());
                         <span class="font-mono text-xs">{{ batch.id.slice(0, 12) }}...</span>
                         <span class="flex items-center gap-3 text-xs">
                             <span class="text-zinc-500">{{ batch.jobCount }} jobs</span>
-                            <span class="text-violet-400/70">{{ batch.workerCount }} {{ batch.workerCount === 1 ? 'worker' : 'workers' }}</span>
+                            <span class="text-violet-400/70">{{ batch.peakWorkers }} {{ batch.peakWorkers === 1 ? 'worker' : 'workers' }}</span>
                             <span class="text-zinc-600">{{ batch.dispatchedAt }}</span>
                         </span>
                     </button>
