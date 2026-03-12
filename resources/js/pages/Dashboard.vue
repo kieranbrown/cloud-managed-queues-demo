@@ -85,9 +85,7 @@ function submit(): void {
 function startPolling(): void {
     stopPolling();
     pollInterval = setInterval(() => {
-        if (props.batchId) {
-            router.reload({ only: ['stats', 'jobs'], preserveScroll: true });
-        }
+        router.reload({ only: props.batchId ? ['stats', 'jobs'] : ['stats'], preserveScroll: true });
     }, 500);
 }
 
@@ -128,12 +126,18 @@ onUnmounted(() => stopPolling());
                         Dispatch jobs and watch Laravel Cloud scale workers to meet demand
                     </p>
                 </div>
-                <div v-if="isActive" class="flex items-center gap-2">
-                    <span class="relative flex h-3 w-3">
-                        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                        <span class="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
-                    </span>
-                    <span class="text-sm font-medium text-emerald-400">Processing</span>
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-medium text-zinc-500">Workers</span>
+                        <span class="font-mono text-lg font-bold text-violet-400">{{ stats.activeWorkers }}</span>
+                    </div>
+                    <div v-if="isActive" class="flex items-center gap-2">
+                        <span class="relative flex h-3 w-3">
+                            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                            <span class="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
+                        </span>
+                        <span class="text-sm font-medium text-emerald-400">Processing</span>
+                    </div>
                 </div>
             </div>
 
