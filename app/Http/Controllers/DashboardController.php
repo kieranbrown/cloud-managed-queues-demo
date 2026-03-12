@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -78,23 +79,37 @@ class DashboardController
 
         $batchId = Str::ulid()->toString();
         $now = microtime(true);
-        $jobs = [];
+        $count = $validated['count'];
 
-        for ($i = 1; $i <= $validated['count']; $i++) {
-            $metric = JobMetric::create([
+        $metricRows = [];
+
+        for ($i = 1; $i <= $count; $i++) {
+            $metricRows[] = [
                 'batch_id' => $batchId,
                 'queue' => $validated['queue'],
                 'job_number' => $i,
                 'dispatched_at' => $now,
-            ]);
+            ];
+        }
 
+        // Bulk insert metrics in chunks of 500 (SQLite/MySQL parameter limits)
+        foreach (array_chunk($metricRows, 500) as $chunk) {
+            JobMetric::insert($chunk);
+        }
+
+        // Fetch inserted IDs to pair with jobs
+        $metricIds = JobMetric::where('batch_id', $batchId)
+            ->orderBy('job_number')
+            ->pluck('id');
+
+        $jobs = $metricIds->map(function (int $id) use ($validated) {
             $duration = random_int($validated['min_duration'], $validated['max_duration']);
-            $jobs[] = (new DemoJob($metric->id, $duration))->onQueue($validated['queue']);
-        }
 
-        foreach ($jobs as $job) {
-            dispatch($job);
-        }
+            return new DemoJob($id, $duration);
+        })->all();
+
+        // Uses BatchSqsQueue::bulk() which sends via sendMessageBatchAsync in parallel
+        Queue::connection(config('queue.default'))->bulk($jobs, '', $validated['queue']);
 
         return redirect()->route('dashboard', ['batch' => $batchId]);
     }

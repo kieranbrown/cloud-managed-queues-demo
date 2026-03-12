@@ -2,11 +2,13 @@
 
 namespace App\Providers;
 
+use App\Queue\Connectors\BatchSqsConnector;
 use Carbon\CarbonImmutable;
 use Illuminate\Queue\Events\Looping;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -23,6 +25,8 @@ class AppServiceProvider extends ServiceProvider
         DB::prohibitDestructiveCommands(
             app()->isProduction(),
         );
+
+        Queue::addConnector('batch-sqs', fn () => new BatchSqsConnector);
 
         $this->registerWorkerHeartbeat();
     }
