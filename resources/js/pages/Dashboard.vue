@@ -75,9 +75,11 @@ const workerColors = computed(() => {
 
 function submit(): void {
     dispatching.value = true;
+    stopPolling();
     form.post('/dispatch', {
         onFinish: () => {
             dispatching.value = false;
+            startPolling();
         },
     });
 }
@@ -85,7 +87,7 @@ function submit(): void {
 function startPolling(): void {
     stopPolling();
     pollInterval = setInterval(() => {
-        router.reload({ only: props.batchId ? ['stats', 'jobs'] : ['stats'], preserveScroll: true });
+        router.reload({ only: props.batchId ? ['stats', 'jobs'] : ['stats'] });
     }, 500);
 }
 
