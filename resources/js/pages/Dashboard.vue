@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Deferred, Head, router, useForm } from '@inertiajs/vue3';
+import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 interface Job {
@@ -252,115 +252,99 @@ onUnmounted(() => stopPolling());
             </div>
 
             <!-- Waterfall Timeline -->
-            <Deferred data="jobs">
-                <template #fallback>
-                    <div v-if="batchId && stats.total > 0" class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
-                        <div class="mb-4 flex items-center justify-between">
-                            <h2 class="font-mono text-sm font-semibold text-zinc-300">Job Waterfall</h2>
-                        </div>
-                        <div class="space-y-px">
-                            <div v-for="i in 20" :key="i" class="flex items-center gap-2">
-                                <span class="w-12 shrink-0" />
-                                <div class="h-4 flex-1 animate-pulse rounded-sm bg-zinc-800/50" />
-                            </div>
-                        </div>
-                    </div>
-                </template>
-
-                <div v-if="jobs.length > 0" class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
-                    <div class="mb-4 flex items-center justify-between">
-                        <h2 class="font-mono text-sm font-semibold text-zinc-300">Job Waterfall</h2>
-                        <div class="flex items-center gap-4 text-xs text-zinc-500">
-                            <span class="flex items-center gap-1.5">
-                                <span class="inline-block h-2.5 w-2.5 rounded-sm bg-zinc-700" />
-                                Waiting
-                            </span>
-                            <span class="flex items-center gap-1.5">
-                                <span class="inline-block h-2.5 w-2.5 rounded-sm bg-blue-500" />
-                                Processing
-                            </span>
-                            <span class="flex items-center gap-1.5">
-                                <span class="inline-block h-2.5 w-2.5 animate-pulse rounded-sm bg-amber-500" />
-                                Active
-                            </span>
-                        </div>
-                    </div>
-
-                    <!-- Time axis -->
-                    <div class="relative mb-2 flex justify-between px-14 text-[10px] font-mono text-zinc-600">
-                        <span>0ms</span>
-                        <span>{{ formatMs(timelineMax * 0.25) }}</span>
-                        <span>{{ formatMs(timelineMax * 0.5) }}</span>
-                        <span>{{ formatMs(timelineMax * 0.75) }}</span>
-                        <span>{{ formatMs(timelineMax) }}</span>
-                    </div>
-
-                    <div class="max-h-[600px] space-y-px overflow-y-auto">
-                        <div
-                            v-for="job in jobs"
-                            :key="job.id"
-                            class="group flex items-center gap-2"
-                        >
-                            <span class="w-12 shrink-0 text-right font-mono text-[10px] text-zinc-600">
-                                #{{ job.number }}
-                            </span>
-                            <div class="relative h-4 flex-1 rounded-sm bg-zinc-800/50">
-                                <!-- Waiting bar (from 0 to pickup) -->
-                                <div
-                                    v-if="job.startMs !== null"
-                                    class="absolute inset-y-0 left-0 rounded-l-sm bg-zinc-700/60"
-                                    :style="{ width: `${(job.startMs / timelineMax) * 100}%` }"
-                                />
-                                <!-- Processing bar -->
-                                <div
-                                    v-if="job.startMs !== null && job.endMs !== null"
-                                    class="absolute inset-y-0 rounded-sm transition-all duration-200"
-                                    :style="{
-                                        left: `${(job.startMs / timelineMax) * 100}%`,
-                                        width: `${((job.endMs - job.startMs) / timelineMax) * 100}%`,
-                                        backgroundColor: job.worker ? workerColors[job.worker] : '#3b82f6',
-                                    }"
-                                />
-                                <!-- Active processing (no end yet) -->
-                                <div
-                                    v-else-if="job.startMs !== null && job.endMs === null"
-                                    class="absolute inset-y-0 animate-pulse rounded-sm bg-amber-500"
-                                    :style="{
-                                        left: `${(job.startMs / timelineMax) * 100}%`,
-                                        width: '3%',
-                                        minWidth: '8px',
-                                    }"
-                                />
-                                <!-- Pending shimmer -->
-                                <div
-                                    v-if="job.status === 'pending'"
-                                    class="absolute inset-0 animate-pulse rounded-sm bg-zinc-700/30"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Worker Legend -->
-                    <div v-if="Object.keys(workerColors).length > 1" class="mt-4 flex flex-wrap gap-3 border-t border-zinc-800 pt-4">
-                        <span class="text-[10px] font-medium text-zinc-500">Workers:</span>
-                        <span
-                            v-for="(color, worker) in workerColors"
-                            :key="worker"
-                            class="flex items-center gap-1.5 text-[10px] text-zinc-400"
-                        >
-                            <span class="inline-block h-2.5 w-2.5 rounded-sm" :style="{ backgroundColor: color }" />
-                            {{ (worker as string).split(':').pop() }}
+            <div v-if="jobs.length > 0" class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
+                <div class="mb-4 flex items-center justify-between">
+                    <h2 class="font-mono text-sm font-semibold text-zinc-300">Job Waterfall</h2>
+                    <div class="flex items-center gap-4 text-xs text-zinc-500">
+                        <span class="flex items-center gap-1.5">
+                            <span class="inline-block h-2.5 w-2.5 rounded-sm bg-zinc-700" />
+                            Waiting
+                        </span>
+                        <span class="flex items-center gap-1.5">
+                            <span class="inline-block h-2.5 w-2.5 rounded-sm bg-blue-500" />
+                            Processing
+                        </span>
+                        <span class="flex items-center gap-1.5">
+                            <span class="inline-block h-2.5 w-2.5 animate-pulse rounded-sm bg-amber-500" />
+                            Active
                         </span>
                     </div>
                 </div>
 
-                <!-- Empty State -->
-                <div v-else-if="!batchId" class="rounded-xl border border-dashed border-zinc-800 p-16 text-center">
-                    <div class="font-mono text-sm text-zinc-600">
-                        Dispatch some jobs to see the waterfall visualization
+                <!-- Time axis -->
+                <div class="relative mb-2 flex justify-between px-14 text-[10px] font-mono text-zinc-600">
+                    <span>0ms</span>
+                    <span>{{ formatMs(timelineMax * 0.25) }}</span>
+                    <span>{{ formatMs(timelineMax * 0.5) }}</span>
+                    <span>{{ formatMs(timelineMax * 0.75) }}</span>
+                    <span>{{ formatMs(timelineMax) }}</span>
+                </div>
+
+                <div class="max-h-[600px] space-y-px overflow-y-auto">
+                    <div
+                        v-for="job in jobs"
+                        :key="job.id"
+                        class="group flex items-center gap-2"
+                    >
+                        <span class="w-12 shrink-0 text-right font-mono text-[10px] text-zinc-600">
+                            #{{ job.number }}
+                        </span>
+                        <div class="relative h-4 flex-1 rounded-sm bg-zinc-800/50">
+                            <!-- Waiting bar (from 0 to pickup) -->
+                            <div
+                                v-if="job.startMs !== null"
+                                class="absolute inset-y-0 left-0 rounded-l-sm bg-zinc-700/60"
+                                :style="{ width: `${(job.startMs / timelineMax) * 100}%` }"
+                            />
+                            <!-- Processing bar -->
+                            <div
+                                v-if="job.startMs !== null && job.endMs !== null"
+                                class="absolute inset-y-0 rounded-sm transition-all duration-200"
+                                :style="{
+                                    left: `${(job.startMs / timelineMax) * 100}%`,
+                                    width: `${((job.endMs - job.startMs) / timelineMax) * 100}%`,
+                                    backgroundColor: job.worker ? workerColors[job.worker] : '#3b82f6',
+                                }"
+                            />
+                            <!-- Active processing (no end yet) -->
+                            <div
+                                v-else-if="job.startMs !== null && job.endMs === null"
+                                class="absolute inset-y-0 animate-pulse rounded-sm bg-amber-500"
+                                :style="{
+                                    left: `${(job.startMs / timelineMax) * 100}%`,
+                                    width: '3%',
+                                    minWidth: '8px',
+                                }"
+                            />
+                            <!-- Pending shimmer -->
+                            <div
+                                v-if="job.status === 'pending'"
+                                class="absolute inset-0 animate-pulse rounded-sm bg-zinc-700/30"
+                            />
+                        </div>
                     </div>
                 </div>
-            </Deferred>
+
+                <!-- Worker Legend -->
+                <div v-if="Object.keys(workerColors).length > 1" class="mt-4 flex flex-wrap gap-3 border-t border-zinc-800 pt-4">
+                    <span class="text-[10px] font-medium text-zinc-500">Workers:</span>
+                    <span
+                        v-for="(color, worker) in workerColors"
+                        :key="worker"
+                        class="flex items-center gap-1.5 text-[10px] text-zinc-400"
+                    >
+                        <span class="inline-block h-2.5 w-2.5 rounded-sm" :style="{ backgroundColor: color }" />
+                        {{ (worker as string).split(':').pop() }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div v-else-if="!batchId" class="rounded-xl border border-dashed border-zinc-800 p-16 text-center">
+                <div class="font-mono text-sm text-zinc-600">
+                    Dispatch some jobs to see the waterfall visualization
+                </div>
+            </div>
 
             <!-- Recent Batches -->
             <div v-if="recentBatches.length > 0" class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">

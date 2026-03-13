@@ -42,7 +42,7 @@ class DashboardController
                     ? round($stats->completed / ($stats->max_completed_at - $stats->min_dispatched_at), 1)
                     : null,
             ],
-            'jobs' => Inertia::defer(fn () => $batchId ? $this->getBatchJobs($batchId) : []),
+            'jobs' => fn () => $batchId ? $this->getBatchJobs($batchId) : [],
             'recentBatches' => $this->getRecentBatches(),
         ]);
     }
