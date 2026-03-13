@@ -19,51 +19,30 @@ class DashboardController
     {
         $batchId = $request->query('batch');
 
-        $metrics = $batchId
-            ? JobMetric::where('batch_id', $batchId)->orderBy('job_number')->get()
-            : collect();
-
-        $completed = $metrics->whereNotNull('completed_at');
-        $pending = $metrics->whereNull('picked_up_at');
-        $processing = $metrics->whereNotNull('picked_up_at')->whereNull('completed_at');
-
-        $batchDispatchedAt = $metrics->min('dispatched_at');
+        $stats = $batchId ? $this->getBatchStats($batchId) : null;
 
         return Inertia::render('Dashboard', [
             'batchId' => $batchId,
             'stats' => [
-                'total' => $metrics->count(),
-                'pending' => $pending->count(),
-                'processing' => $processing->count(),
-                'completed' => $completed->count(),
-                'avgWaitMs' => $completed->count() > 0
-                    ? round($completed->avg(fn (JobMetric $m) => ($m->picked_up_at - $m->dispatched_at) * 1000))
-                    : null,
-                'avgProcessMs' => $completed->count() > 0
-                    ? round($completed->avg(fn (JobMetric $m) => ($m->completed_at - $m->picked_up_at) * 1000))
-                    : null,
-                'totalDurationMs' => $completed->count() > 0
-                    ? round(($completed->max('completed_at') - $batchDispatchedAt) * 1000)
+                'total' => $stats->total ?? 0,
+                'pending' => $stats->pending ?? 0,
+                'processing' => $stats->processing ?? 0,
+                'completed' => $stats->completed ?? 0,
+                'avgWaitMs' => $stats?->avg_wait_ms ? round($stats->avg_wait_ms) : null,
+                'avgProcessMs' => $stats?->avg_process_ms ? round($stats->avg_process_ms) : null,
+                'totalDurationMs' => $stats?->completed > 0 && $stats->max_completed_at && $stats->min_dispatched_at
+                    ? round(($stats->max_completed_at - $stats->min_dispatched_at) * 1000)
                     : null,
                 'activeWorkers' => DB::table('worker_heartbeats')
                     ->where('last_seen_at', '>=', now()->subSeconds(10))
                     ->count(),
-                'peakWorkers' => $this->calculatePeakConcurrency($metrics),
-                'uniqueWorkers' => $metrics->pluck('worker_id')->filter()->unique()->count(),
-                'jobsPerSecond' => $completed->count() > 0 && ($completed->max('completed_at') - $batchDispatchedAt) > 0
-                    ? round($completed->count() / ($completed->max('completed_at') - $batchDispatchedAt), 1)
+                'peakWorkers' => $batchId ? $this->calculatePeakConcurrencyFromDb($batchId) : 0,
+                'uniqueWorkers' => (int) ($stats->unique_workers ?? 0),
+                'jobsPerSecond' => $stats?->completed > 0 && $stats->max_completed_at && $stats->min_dispatched_at && ($stats->max_completed_at - $stats->min_dispatched_at) > 0
+                    ? round($stats->completed / ($stats->max_completed_at - $stats->min_dispatched_at), 1)
                     : null,
             ],
-            'jobs' => $metrics->map(fn (JobMetric $m) => [
-                'id' => $m->id,
-                'number' => $m->job_number,
-                'queue' => $m->queue,
-                'worker' => $m->worker_id,
-                'waitMs' => $m->picked_up_at ? round(($m->picked_up_at - $batchDispatchedAt) * 1000) : null,
-                'startMs' => $m->picked_up_at ? round(($m->picked_up_at - $batchDispatchedAt) * 1000) : null,
-                'endMs' => $m->completed_at ? round(($m->completed_at - $batchDispatchedAt) * 1000) : null,
-                'status' => $m->completed_at ? 'completed' : ($m->picked_up_at ? 'processing' : 'pending'),
-            ])->values(),
+            'jobs' => Inertia::defer(fn () => $batchId ? $this->getBatchJobs($batchId) : []),
             'recentBatches' => $this->getRecentBatches(),
         ]);
     }
@@ -114,22 +93,64 @@ class DashboardController
         return redirect()->route('dashboard', ['batch' => $batchId]);
     }
 
+    private function getBatchStats(string $batchId): object
+    {
+        return DB::table('job_metrics')
+            ->where('batch_id', $batchId)
+            ->selectRaw('count(*) as total')
+            ->selectRaw('count(case when picked_up_at is null then 1 end) as pending')
+            ->selectRaw('count(case when picked_up_at is not null and completed_at is null then 1 end) as processing')
+            ->selectRaw('count(case when completed_at is not null then 1 end) as completed')
+            ->selectRaw('avg(case when completed_at is not null then (picked_up_at - dispatched_at) * 1000 end) as avg_wait_ms')
+            ->selectRaw('avg(case when completed_at is not null then (completed_at - picked_up_at) * 1000 end) as avg_process_ms')
+            ->selectRaw('min(dispatched_at) as min_dispatched_at')
+            ->selectRaw('max(completed_at) as max_completed_at')
+            ->selectRaw('count(distinct worker_id) as unique_workers')
+            ->first();
+    }
+
+    /**
+     * @return array<int, array{id: int, number: int, queue: string, worker: string|null, waitMs: float|null, startMs: float|null, endMs: float|null, status: string}>
+     */
+    private function getBatchJobs(string $batchId): array
+    {
+        $batchDispatchedAt = DB::table('job_metrics')
+            ->where('batch_id', $batchId)
+            ->min('dispatched_at');
+
+        return DB::table('job_metrics')
+            ->where('batch_id', $batchId)
+            ->orderBy('job_number')
+            ->limit(500)
+            ->get(['id', 'job_number', 'queue', 'worker_id', 'dispatched_at', 'picked_up_at', 'completed_at'])
+            ->map(fn (object $m) => [
+                'id' => $m->id,
+                'number' => $m->job_number,
+                'queue' => $m->queue,
+                'worker' => $m->worker_id,
+                'waitMs' => $m->picked_up_at ? round(($m->picked_up_at - $batchDispatchedAt) * 1000) : null,
+                'startMs' => $m->picked_up_at ? round(($m->picked_up_at - $batchDispatchedAt) * 1000) : null,
+                'endMs' => $m->completed_at ? round(($m->completed_at - $batchDispatchedAt) * 1000) : null,
+                'status' => $m->completed_at ? 'completed' : ($m->picked_up_at ? 'processing' : 'pending'),
+            ])->values()->all();
+    }
+
     /**
      * Calculate peak concurrent workers using a sweep line algorithm.
-     *
-     * @param  Collection<int, JobMetric>  $metrics
+     * Only fetches the two columns needed instead of full row hydration.
      */
-    private function calculatePeakConcurrency(Collection $metrics): int
+    private function calculatePeakConcurrencyFromDb(string $batchId): int
     {
+        $rows = DB::table('job_metrics')
+            ->where('batch_id', $batchId)
+            ->whereNotNull('picked_up_at')
+            ->get(['picked_up_at', 'completed_at']);
+
         $events = [];
 
-        foreach ($metrics as $metric) {
-            if ($metric->picked_up_at === null) {
-                continue;
-            }
-
-            $events[] = ['time' => $metric->picked_up_at, 'type' => 1];
-            $events[] = ['time' => $metric->completed_at ?? PHP_FLOAT_MAX, 'type' => -1];
+        foreach ($rows as $row) {
+            $events[] = ['time' => $row->picked_up_at, 'type' => 1];
+            $events[] = ['time' => $row->completed_at ?? PHP_FLOAT_MAX, 'type' => -1];
         }
 
         usort($events, fn ($a, $b) => $a['time'] <=> $b['time'] ?: $a['type'] <=> $b['type']);
