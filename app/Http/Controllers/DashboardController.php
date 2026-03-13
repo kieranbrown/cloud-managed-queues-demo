@@ -121,7 +121,6 @@ class DashboardController
         return DB::table('job_metrics')
             ->where('batch_id', $batchId)
             ->orderBy('job_number')
-            ->limit(500)
             ->get(['id', 'job_number', 'queue', 'worker_id', 'dispatched_at', 'picked_up_at', 'completed_at'])
             ->map(fn (object $m) => [
                 'id' => $m->id,

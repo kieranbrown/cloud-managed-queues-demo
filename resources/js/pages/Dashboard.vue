@@ -269,12 +269,7 @@ onUnmounted(() => stopPolling());
 
                 <div v-if="jobs.length > 0" class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
                     <div class="mb-4 flex items-center justify-between">
-                        <h2 class="font-mono text-sm font-semibold text-zinc-300">
-                            Job Waterfall
-                            <span v-if="stats.total > jobs.length" class="text-xs font-normal text-zinc-500">
-                                (showing {{ jobs.length }} of {{ stats.total }})
-                            </span>
-                        </h2>
+                        <h2 class="font-mono text-sm font-semibold text-zinc-300">Job Waterfall</h2>
                         <div class="flex items-center gap-4 text-xs text-zinc-500">
                             <span class="flex items-center gap-1.5">
                                 <span class="inline-block h-2.5 w-2.5 rounded-sm bg-zinc-700" />
