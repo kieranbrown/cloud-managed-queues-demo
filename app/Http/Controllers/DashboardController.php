@@ -120,7 +120,7 @@ class DashboardController
 
         return DB::table('job_metrics')
             ->where('batch_id', $batchId)
-            ->orderBy('job_number')
+            ->orderByRaw('picked_up_at is null, picked_up_at asc, job_number asc')
             ->get(['id', 'job_number', 'queue', 'worker_id', 'dispatched_at', 'picked_up_at', 'completed_at'])
             ->map(fn (object $m) => [
                 'id' => $m->id,
