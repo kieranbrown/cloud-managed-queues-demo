@@ -334,7 +334,7 @@ onUnmounted(() => stopPolling());
                         class="flex items-center gap-1.5 text-[10px] text-zinc-400"
                     >
                         <span class="inline-block h-2.5 w-2.5 rounded-sm" :style="{ backgroundColor: color }" />
-                        {{ (worker as string).split(':').pop() }}
+                        {{ worker }}
                     </span>
                 </div>
             </div>
