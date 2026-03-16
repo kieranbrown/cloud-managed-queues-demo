@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Queue\Connectors\BatchSqsConnector;
 use Carbon\CarbonImmutable;
 use Illuminate\Queue\Events\Looping;
+use Illuminate\Queue\Events\WorkerStopping;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -33,9 +34,24 @@ class AppServiceProvider extends ServiceProvider
 
     private function registerWorkerHeartbeat(): void
     {
+        $registered = false;
         $lastHeartbeat = 0.0;
 
-        Event::listen(Looping::class, function (Looping $event) use (&$lastHeartbeat): void {
+        Event::listen(Looping::class, function (Looping $event) use (&$registered, &$lastHeartbeat): void {
+            $workerId = gethostname().':'.getmypid();
+
+            if (! $registered) {
+                DB::table('worker_heartbeats')->updateOrInsert(
+                    ['worker_id' => $workerId],
+                    ['queue' => $event->queue, 'active' => true, 'last_seen_at' => now()],
+                );
+
+                $registered = true;
+                $lastHeartbeat = microtime(true);
+
+                return;
+            }
+
             $now = microtime(true);
 
             if ($now - $lastHeartbeat < 3) {
@@ -43,12 +59,18 @@ class AppServiceProvider extends ServiceProvider
             }
 
             $lastHeartbeat = $now;
+
+            DB::table('worker_heartbeats')
+                ->where('worker_id', $workerId)
+                ->update(['last_seen_at' => now()]);
+        });
+
+        Event::listen(WorkerStopping::class, function (): void {
             $workerId = gethostname().':'.getmypid();
 
-            DB::table('worker_heartbeats')->updateOrInsert(
-                ['worker_id' => $workerId],
-                ['queue' => $event->queue, 'last_seen_at' => now()],
-            );
+            DB::table('worker_heartbeats')
+                ->where('worker_id', $workerId)
+                ->update(['active' => false]);
         });
     }
 }
