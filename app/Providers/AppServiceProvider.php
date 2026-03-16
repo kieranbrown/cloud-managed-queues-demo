@@ -35,42 +35,28 @@ class AppServiceProvider extends ServiceProvider
     private function registerWorkerHeartbeat(): void
     {
         $registered = false;
-        $lastHeartbeat = 0.0;
 
-        Event::listen(Looping::class, function (Looping $event) use (&$registered, &$lastHeartbeat): void {
+        Event::listen(Looping::class, function (Looping $event) use (&$registered): void {
+            if ($registered) {
+                return;
+            }
+
             $workerId = gethostname().':'.getmypid();
 
-            if (! $registered) {
-                DB::table('worker_heartbeats')->updateOrInsert(
-                    ['worker_id' => $workerId],
-                    ['queue' => $event->queue, 'active' => true, 'last_seen_at' => now()],
-                );
+            DB::table('workers')->updateOrInsert(
+                ['worker_id' => $workerId],
+                ['queue' => $event->queue, 'started_at' => now()],
+            );
 
-                $registered = true;
-                $lastHeartbeat = microtime(true);
-
-                return;
-            }
-
-            $now = microtime(true);
-
-            if ($now - $lastHeartbeat < 3) {
-                return;
-            }
-
-            $lastHeartbeat = $now;
-
-            DB::table('worker_heartbeats')
-                ->where('worker_id', $workerId)
-                ->update(['last_seen_at' => now()]);
+            $registered = true;
         });
 
         Event::listen(WorkerStopping::class, function (): void {
             $workerId = gethostname().':'.getmypid();
 
-            DB::table('worker_heartbeats')
+            DB::table('workers')
                 ->where('worker_id', $workerId)
-                ->update(['active' => false]);
+                ->delete();
         });
     }
 }

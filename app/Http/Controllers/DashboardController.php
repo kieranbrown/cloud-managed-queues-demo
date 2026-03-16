@@ -33,10 +33,7 @@ class DashboardController
                 'totalDurationMs' => $stats?->completed > 0 && $stats->max_completed_at && $stats->min_dispatched_at
                     ? round(($stats->max_completed_at - $stats->min_dispatched_at) * 1000)
                     : null,
-                'activeWorkers' => DB::table('worker_heartbeats')
-                    ->where('active', true)
-                    ->where('last_seen_at', '>=', now()->subSeconds(5))
-                    ->count(),
+                'activeWorkers' => DB::table('workers')->count(),
                 'peakWorkers' => $batchId ? $this->calculatePeakConcurrencyFromDb($batchId) : 0,
                 'uniqueWorkers' => (int) ($stats->unique_workers ?? 0),
                 'jobsPerSecond' => $stats?->completed > 0 && $stats->max_completed_at && $stats->min_dispatched_at && ($stats->max_completed_at - $stats->min_dispatched_at) > 0
