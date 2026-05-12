@@ -8,7 +8,7 @@
         "php": "^8.2",
         "aws/aws-sdk-php": "^3.373",
         "inertiajs/inertia-laravel": "^2.0",
-        "laravel/framework": "13.x-dev",
+        "laravel/framework": "^13.0",
         "laravel/nightwatch": "^1.26",
         "laravel/octane": "^2.15",
         "laravel/tinker": "^3.0"
@@ -60,6 +60,6 @@
             "php-http/discovery": true
         }
     },
-    "minimum-stability": "dev",
+    "minimum-stability": "stable",
     "prefer-stable": true
 }
