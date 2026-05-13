@@ -3,12 +3,16 @@
 namespace App\Jobs;
 
 use App\Models\JobMetric;
+use Illuminate\Contracts\Queue\Interruptible;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
 
-class DemoJob implements ShouldQueue
+class DemoJob implements Interruptible, ShouldQueue
 {
     use Queueable;
+
+    private ?float $deadline = null;
 
     public function __construct(
         public int $metricId,
@@ -24,19 +28,45 @@ class DemoJob implements ShouldQueue
             'worker_id' => $workerId,
         ]);
 
-        $this->sleepFully($this->workDurationMs * 1000);
+        $this->deadline = microtime(true) + ($this->workDurationMs / 1000);
+
+        $this->sleepUntilDeadline();
 
         JobMetric::where('id', $this->metricId)->update([
             'completed_at' => microtime(true),
         ]);
     }
 
-    private function sleepFully(int $microseconds): void
+    public function interrupted(int $signal): void
     {
-        $deadline = microtime(true) + ($microseconds / 1_000_000);
+        $remainingMs = $this->deadline === null
+            ? null
+            : max(0, ($this->deadline - microtime(true)) * 1000);
 
-        while (($remaining = $deadline - microtime(true)) > 0) {
+        Log::warning('DemoJob received worker signal', [
+            'metric_id' => $this->metricId,
+            'signal' => $signal,
+            'signal_name' => $this->signalName($signal),
+            'received_at' => now()->toDateTimeString('millisecond'),
+            'remaining_ms' => $remainingMs,
+        ]);
+    }
+
+    private function sleepUntilDeadline(): void
+    {
+        while (($remaining = $this->deadline - microtime(true)) > 0) {
             usleep((int) ($remaining * 1_000_000));
         }
+    }
+
+    private function signalName(int $signal): string
+    {
+        return match ($signal) {
+            SIGTERM => 'SIGTERM',
+            SIGINT => 'SIGINT',
+            SIGQUIT => 'SIGQUIT',
+            SIGUSR2 => 'SIGUSR2',
+            default => 'UNKNOWN',
+        };
     }
 }
