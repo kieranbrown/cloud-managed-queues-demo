@@ -12,6 +12,8 @@ class DemoJob implements Interruptible, ShouldQueue
 {
     use Queueable;
 
+    public int $timeout = 0;
+
     private ?float $deadline = null;
 
     public function __construct(
