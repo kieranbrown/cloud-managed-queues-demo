@@ -48,14 +48,18 @@ class AppServiceProvider extends ServiceProvider
 
     private function registerWorkerHeartbeat(): void
     {
-        $registered = false;
+        $lastHeartbeatAt = 0.0;
 
         Event::listen(Looping::class, function (Looping $event) use (
-            &$registered,
+            &$lastHeartbeatAt,
         ): void {
-            if ($registered) {
+            $now = microtime(true);
+
+            if ($now - $lastHeartbeatAt < 3) {
                 return;
             }
+
+            $lastHeartbeatAt = $now;
 
             $workerId = gethostname().':'.getmypid();
 
@@ -63,8 +67,6 @@ class AppServiceProvider extends ServiceProvider
                 ['worker_id' => $workerId],
                 ['queue' => $event->queue, 'started_at' => now()],
             );
-
-            $registered = true;
         });
 
         Event::listen(WorkerStopping::class, function (): void {
