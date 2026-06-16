@@ -34,6 +34,7 @@ class DashboardController
                     ? round(($stats->max_completed_at - $stats->min_dispatched_at) * 1000)
                     : null,
                 'activeWorkers' => DB::table('workers')->count(),
+                'workersByQueue' => $this->getWorkersByQueue(),
                 'peakWorkers' => $batchId ? $this->calculatePeakConcurrencyFromDb($batchId) : 0,
                 'uniqueWorkers' => (int) ($stats->unique_workers ?? 0),
                 'jobsPerSecond' => $stats?->completed > 0 && $stats->max_completed_at && $stats->min_dispatched_at && ($stats->max_completed_at - $stats->min_dispatched_at) > 0
@@ -89,6 +90,33 @@ class DashboardController
         Queue::connection(config('queue.default'))->bulk($jobs, '', $validated['queue']);
 
         return redirect()->route('dashboard', ['batch' => $batchId]);
+    }
+
+    /**
+     * Count active workers grouped by the queue they are processing.
+     *
+     * @return array<string, int>
+     */
+    private function getWorkersByQueue(): array
+    {
+        $counts = DB::table('workers')
+            ->selectRaw('queue, count(*) as count')
+            ->groupBy('queue')
+            ->pluck('count', 'queue');
+
+        $byQueue = ['default' => 0, 'processing' => 0, 'critical' => 0];
+
+        foreach ($counts as $queue => $count) {
+            foreach (explode(',', (string) ($queue ?? 'default')) as $name) {
+                $name = trim($name) ?: 'default';
+
+                if (array_key_exists($name, $byQueue)) {
+                    $byQueue[$name] += (int) $count;
+                }
+            }
+        }
+
+        return $byQueue;
     }
 
     private function getBatchStats(string $batchId): object

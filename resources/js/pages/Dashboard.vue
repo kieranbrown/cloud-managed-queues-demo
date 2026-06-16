@@ -22,6 +22,7 @@ interface Stats {
     avgProcessMs: number | null;
     totalDurationMs: number | null;
     activeWorkers: number;
+    workersByQueue: Record<string, number>;
     peakWorkers: number;
     uniqueWorkers: number;
     jobsPerSecond: number | null;
@@ -47,6 +48,12 @@ const form = useForm({
     max_duration: 2000,
     queue: 'default',
 });
+
+const queueMeta = [
+    { name: 'default', dot: 'bg-blue-400', text: 'text-blue-400' },
+    { name: 'processing', dot: 'bg-violet-400', text: 'text-violet-400' },
+    { name: 'critical', dot: 'bg-rose-400', text: 'text-rose-400' },
+] as const;
 
 const dispatching = ref(false);
 let pollTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -145,9 +152,26 @@ onUnmounted(() => stopPolling());
                     </p>
                 </div>
                 <div class="flex items-center gap-4">
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2">
                         <span class="text-xs font-medium text-zinc-500">Workers</span>
-                        <span class="font-mono text-lg font-bold text-violet-400">{{ stats.activeWorkers }}</span>
+                        <div class="flex items-center gap-3">
+                            <span
+                                v-for="queue in queueMeta"
+                                :key="queue.name"
+                                class="flex items-center gap-1.5"
+                                :title="`${queue.name} queue`"
+                            >
+                                <span class="inline-block h-2 w-2 rounded-full" :class="queue.dot" />
+                                <span class="font-mono text-[10px] text-zinc-500">{{ queue.name }}</span>
+                                <span class="font-mono text-sm font-bold" :class="queue.text">
+                                    {{ stats.workersByQueue?.[queue.name] ?? 0 }}
+                                </span>
+                            </span>
+                        </div>
+                        <span class="border-l border-zinc-800 pl-3 font-mono text-sm font-bold text-white">
+                            {{ stats.activeWorkers }}
+                            <span class="text-[10px] font-medium text-zinc-500">total</span>
+                        </span>
                     </div>
                     <div v-if="isActive" class="flex items-center gap-2">
                         <span class="relative flex h-3 w-3">
