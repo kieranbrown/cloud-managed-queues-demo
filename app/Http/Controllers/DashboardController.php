@@ -119,6 +119,29 @@ class DashboardController
         return $byQueue;
     }
 
+    /**
+     * Clear the active workers table. Useful when workers get stuck and
+     * the count no longer reflects reality.
+     */
+    public function resetWorkers(): RedirectResponse
+    {
+        DB::table('workers')->delete();
+
+        return back();
+    }
+
+    /**
+     * Wipe all batch, job, and queue data, leaving worker registrations intact.
+     */
+    public function reset(): RedirectResponse
+    {
+        foreach (['job_metrics', 'jobs', 'job_batches', 'failed_jobs'] as $table) {
+            DB::table($table)->delete();
+        }
+
+        return redirect()->route('dashboard');
+    }
+
     private function getBatchStats(string $batchId): object
     {
         return DB::table('job_metrics')
