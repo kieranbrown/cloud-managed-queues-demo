@@ -75,24 +75,23 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * A standard worker stays registered for its whole lifetime, refreshing
-     * periodically so that resetting the workers table is self-healing.
+     * A standard worker registers itself once when it boots and deregisters
+     * when it stops, so it appears in the table for its whole lifetime without
+     * any periodic writes.
      */
     private function registerStandardWorkerHeartbeat(string $workerId): void
     {
-        $lastHeartbeatAt = 0.0;
+        $registered = false;
 
         Event::listen(Looping::class, function (Looping $event) use (
             $workerId,
-            &$lastHeartbeatAt,
+            &$registered,
         ): void {
-            $now = microtime(true);
-
-            if ($now - $lastHeartbeatAt < 3) {
+            if ($registered) {
                 return;
             }
 
-            $lastHeartbeatAt = $now;
+            $registered = true;
 
             DB::table('workers')->updateOrInsert(
                 ['worker_id' => $workerId],
