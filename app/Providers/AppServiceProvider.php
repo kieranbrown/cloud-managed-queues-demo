@@ -39,7 +39,7 @@ class AppServiceProvider extends ServiceProvider
         // overriding the BatchSqsConnector we registered above. Extending the
         // QueueConnector container binding lets us swap the inner connector
         // back to BatchSqsConnector while preserving Cloud's job telemetry.
-        if (($_SERVER['LARAVEL_CLOUD_MANAGED_QUEUES'] ?? null) === '1') {
+        if ($this->app->bound(QueueConnector::class)) {
             $this->app->extend(
                 QueueConnector::class,
                 fn ($_, $app) => new QueueConnector(new BatchSqsConnector, $app),
