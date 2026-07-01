@@ -20,9 +20,11 @@ class BatchSqsQueue extends SqsQueue
     private const MAX_BATCH_COUNT = 10;
 
     /**
-     * SQS limit: 1 MiB (1,048,576 bytes) total batch payload size.
+     * SQS limit: 1 MiB (1,048,576 bytes) maximum POST body per SendMessageBatch
+     * request. This bounds the serialized request JSON, which also satisfies
+     * the documented 1 MiB cap on the sum of the raw message bodies.
      */
-    private const MAX_BATCH_BYTES = 1_048_576;
+    private const MAX_POST_BYTES = 1_048_576;
 
     public function __construct(
         SqsClient $sqs,
@@ -137,7 +139,7 @@ class BatchSqsQueue extends SqsQueue
             $this->raiseJobQueueingEvent($queue, $item['job'], $item['payload'], $item['delay']);
         }
 
-        $chunks = $this->chunkEntries($entries);
+        $chunks = $this->chunkEntries($entries, $queue);
         $sqs = $this->getSqs();
 
         $requests = function () use ($chunks, $queue, $sqs) {
@@ -193,7 +195,8 @@ class BatchSqsQueue extends SqsQueue
 
     /**
      * Build SendMessageBatch entry rows for each job, retaining the job +
-     * payload alongside each entry so events can be raised later.
+     * payload alongside each entry so events can be raised later. Payloads
+     * that qualify for overflow storage are offloaded before batching.
      *
      * @param  array<int, mixed>  $jobs
      * @param  mixed  $data
@@ -207,6 +210,10 @@ class BatchSqsQueue extends SqsQueue
             $delay = is_object($job) ? ($job->delay ?? null) : null;
 
             $payload = $this->createPayload($job, $queue, $data, $delay);
+
+            if ($this->willOverflow($payload)) {
+                $payload = $this->overflow($payload);
+            }
 
             $entry = [
                 'Id' => Str::uuid()->toString(),
@@ -239,31 +246,41 @@ class BatchSqsQueue extends SqsQueue
     }
 
     /**
-     * Chunk entries to respect SQS limits: at most 10 entries per batch and at
-     * most 1 MiB of cumulative MessageBody bytes per batch.
+     * Chunk entries to respect SQS limits: at most 10 entries per batch and a
+     * serialized POST body of at most 1 MiB per batch.
+     *
+     * Each entry is measured as its JSON-serialized form — the bytes it
+     * actually contributes to the POST body, including entry metadata and
+     * string-escaping overhead — mirroring the AWS SDK's json-protocol
+     * serialization. The request envelope around the entries is budgeted
+     * up front so the whole POST stays within the limit.
      *
      * @param  array<int, array{job: mixed, payload: string, delay: mixed, entry: array<string, mixed>}>  $entries
      * @return array<int, array<int, array{job: mixed, payload: string, delay: mixed, entry: array<string, mixed>}>>
      */
-    protected function chunkEntries(array $entries): array
+    protected function chunkEntries(array $entries, string $queue): array
     {
+        $available = self::MAX_POST_BYTES - strlen(json_encode(
+            ['QueueUrl' => $queue, 'Entries' => []], JSON_THROW_ON_ERROR,
+        ));
+
         $chunks = [];
         $current = [];
         $currentBytes = 0;
 
         foreach ($entries as $item) {
-            $bytes = strlen($item['entry']['MessageBody']);
+            $bytes = strlen(json_encode($item['entry'], JSON_THROW_ON_ERROR)) + 1;
 
-            if ($bytes > self::MAX_BATCH_BYTES) {
+            if ($bytes > $available) {
                 throw new RuntimeException(sprintf(
-                    'SQS message body of %d bytes exceeds the %d byte batch limit.',
+                    'SQS batch entry of %d serialized bytes exceeds the %d byte request limit.',
                     $bytes,
-                    self::MAX_BATCH_BYTES,
+                    self::MAX_POST_BYTES,
                 ));
             }
 
             $wouldExceedCount = count($current) >= self::MAX_BATCH_COUNT;
-            $wouldExceedBytes = $currentBytes + $bytes > self::MAX_BATCH_BYTES;
+            $wouldExceedBytes = $currentBytes + $bytes > $available;
 
             if (! empty($current) && ($wouldExceedCount || $wouldExceedBytes)) {
                 $chunks[] = $current;
