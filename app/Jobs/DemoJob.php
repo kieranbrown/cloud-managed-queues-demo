@@ -19,6 +19,11 @@ class DemoJob implements Interruptible, ShouldQueue
     public function __construct(
         public int $metricId,
         public int $workDurationMs = 500,
+        // Opaque padding to inflate the serialized SQS message body for
+        // poller memory testing. Must be a constructor property so it is
+        // serialized into the message (a body generated in handle() would not
+        // travel through SQS or the poller). Defaults to empty — no overhead.
+        public string $payload = '',
     ) {}
 
     public function handle(): void

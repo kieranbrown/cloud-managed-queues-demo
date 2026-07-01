@@ -53,6 +53,10 @@ class DashboardController
             'min_duration' => ['required', 'integer', 'min:0'],
             'max_duration' => ['required', 'integer', 'min:0'],
             'queue' => ['required', 'string', 'in:default,processing,critical'],
+            // Optional per-job payload padding (bytes) for poller memory tests.
+            // Capped below SQS's 1 MiB ceiling to leave headroom for the job
+            // wrapper + serialization overhead. Default 0 = no payload.
+            'payload_bytes' => ['sometimes', 'integer', 'min:0', 'max:900000'],
         ]);
 
         $batchId = Str::ulid()->toString();
@@ -80,10 +84,16 @@ class DashboardController
             ->orderBy('job_number')
             ->pluck('id');
 
-        $jobs = $metricIds->map(function (int $id) use ($validated) {
+        // Build the padding once and share it across every job in the batch:
+        // each job still serializes its own copy into its own SQS message, but
+        // we avoid generating thousands of ~1 MiB strings in the dispatcher.
+        $payloadBytes = (int) ($validated['payload_bytes'] ?? 0);
+        $payload = $payloadBytes > 0 ? Str::random($payloadBytes) : '';
+
+        $jobs = $metricIds->map(function (int $id) use ($validated, $payload) {
             $duration = random_int($validated['min_duration'], $validated['max_duration']);
 
-            return new DemoJob($id, $duration);
+            return new DemoJob($id, $duration, $payload);
         })->all();
 
         // Uses BatchSqsQueue::bulk() which sends via sendMessageBatchAsync in parallel
