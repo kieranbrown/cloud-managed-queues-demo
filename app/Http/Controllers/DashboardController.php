@@ -54,9 +54,10 @@ class DashboardController
             'max_duration' => ['required', 'integer', 'min:0'],
             'queue' => ['required', 'string', 'in:default,processing,critical'],
             // Optional per-job payload padding (bytes) for poller memory tests.
-            // Capped below SQS's 1 MiB ceiling to leave headroom for the job
-            // wrapper + serialization overhead. Default 0 = no payload.
-            'payload_bytes' => ['sometimes', 'integer', 'min:0', 'max:900000'],
+            // Laravel's job envelope adds a fixed ~740 B of overhead (measured),
+            // and SQS's hard limit is 1,048,576 B (1 MiB), so 1,045,000 leaves a
+            // ~2.8 KB safety margin. Default 0 = no payload.
+            'payload_bytes' => ['sometimes', 'integer', 'min:0', 'max:1045000'],
         ]);
 
         $batchId = Str::ulid()->toString();

@@ -49,7 +49,8 @@ const form = useForm({
     queue: 'default',
     // Per-job payload padding in KB (0 = none). Converted to bytes on submit
     // to match the controller's `payload_bytes` param. Used to inflate the SQS
-    // message body for poller memory testing; capped at 900 KB (< SQS 1 MiB).
+    // message body for poller memory testing; capped at 1045 KB — the job
+    // envelope adds ~740 B, so this stays just under SQS's 1 MiB body limit.
     payload_kb: 0,
 });
 
@@ -282,7 +283,7 @@ onUnmounted(() => stopPolling());
                             v-model.number="form.payload_kb"
                             type="number"
                             min="0"
-                            max="900"
+                            max="1045"
                             class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 font-mono text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                         />
                     </div>
