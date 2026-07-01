@@ -47,6 +47,10 @@ const form = useForm({
     min_duration: 200,
     max_duration: 2000,
     queue: 'default',
+    // Per-job payload padding in KB (0 = none). Converted to bytes on submit
+    // to match the controller's `payload_bytes` param. Used to inflate the SQS
+    // message body for poller memory testing; capped at 900 KB (< SQS 1 MiB).
+    payload_kb: 0,
 });
 
 const queueMeta = [
@@ -85,7 +89,12 @@ const workerColors = computed(() => {
 function submit(): void {
     dispatching.value = true;
     stopPolling();
-    form.post('/dispatch', {
+    // Send payload as bytes (controller expects `payload_bytes`); 1 KB = 1000 B
+    // so the 900 KB cap maps exactly onto the controller's 900000-byte max.
+    form.transform(({ payload_kb, ...rest }) => ({
+        ...rest,
+        payload_bytes: Math.round((payload_kb ?? 0) * 1000),
+    })).post('/dispatch', {
         onFinish: () => {
             dispatching.value = false;
             startPolling();
@@ -264,6 +273,16 @@ onUnmounted(() => stopPolling());
                             v-model.number="form.max_duration"
                             type="number"
                             min="0"
+                            class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 font-mono text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                        />
+                    </div>
+                    <div class="min-w-[120px] flex-1">
+                        <label class="mb-1.5 block text-xs font-medium text-zinc-400">Payload / job (KB)</label>
+                        <input
+                            v-model.number="form.payload_kb"
+                            type="number"
+                            min="0"
+                            max="900"
                             class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 font-mono text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                         />
                     </div>
