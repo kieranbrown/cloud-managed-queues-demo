@@ -58,6 +58,10 @@ class DashboardController
             // and SQS's hard limit is 1,048,576 B (1 MiB), so 1,045,000 leaves a
             // ~2.8 KB safety margin. Default 0 = no payload.
             'payload_bytes' => ['sometimes', 'integer', 'min:0', 'max:1045000'],
+            // Optional per-job runtime memory allocation (bytes) for worker
+            // memory-pressure tests. Uncapped by design — forcing a job past the
+            // worker's memory_limit is a valid thing to test. Default 0 = none.
+            'memory_bytes' => ['sometimes', 'integer', 'min:0'],
         ]);
 
         $batchId = Str::ulid()->toString();
@@ -91,10 +95,12 @@ class DashboardController
         $payloadBytes = (int) ($validated['payload_bytes'] ?? 0);
         $payload = $payloadBytes > 0 ? Str::random($payloadBytes) : '';
 
-        $jobs = $metricIds->map(function (int $id) use ($validated, $payload) {
+        $memoryBytes = (int) ($validated['memory_bytes'] ?? 0);
+
+        $jobs = $metricIds->map(function (int $id) use ($validated, $payload, $memoryBytes) {
             $duration = random_int($validated['min_duration'], $validated['max_duration']);
 
-            return new DemoJob($id, $duration, $payload);
+            return new DemoJob($id, $duration, $payload, $memoryBytes);
         })->all();
 
         // Uses BatchSqsQueue::bulk() which sends via sendMessageBatchAsync in parallel

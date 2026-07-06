@@ -24,6 +24,11 @@ class DemoJob implements Interruptible, ShouldQueue
         // serialized into the message (a body generated in handle() would not
         // travel through SQS or the poller). Defaults to empty — no overhead.
         public string $payload = '',
+        // Force the worker to hold this many bytes of live memory while the job
+        // runs, to test worker memory pressure. Unlike $payload this is
+        // allocated at runtime in handle() and never travels through SQS.
+        // 0 = no forced allocation.
+        public int $memoryBytes = 0,
     ) {}
 
     public function handle(): void
@@ -35,6 +40,10 @@ class DemoJob implements Interruptible, ShouldQueue
             'worker_id' => $workerId,
         ]);
 
+        // Allocate the requested memory and keep it referenced for the whole
+        // job so peak worker memory reflects the forced amount, then release.
+        $hog = $this->memoryBytes > 0 ? str_repeat('x', $this->memoryBytes) : null;
+
         $this->deadline = microtime(true) + ($this->workDurationMs / 1000);
 
         $this->sleepUntilDeadline();
@@ -42,6 +51,8 @@ class DemoJob implements Interruptible, ShouldQueue
         JobMetric::where('id', $this->metricId)->update([
             'completed_at' => microtime(true),
         ]);
+
+        unset($hog);
     }
 
     public function interrupted(int $signal): void

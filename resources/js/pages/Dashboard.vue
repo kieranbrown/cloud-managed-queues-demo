@@ -52,6 +52,10 @@ const form = useForm({
     // message body for poller memory testing; capped at 1045 KB — the job
     // envelope adds ~740 B, so this stays just under SQS's 1 MiB body limit.
     payload_kb: 0,
+    // Per-job runtime memory to force the worker to allocate, in MB (0 = none).
+    // Converted to bytes on submit to match the controller's `memory_bytes`
+    // param. Uncapped — forcing a job past the worker's memory_limit is fair game.
+    memory_mb: 0,
 });
 
 const queueMeta = [
@@ -90,11 +94,14 @@ const workerColors = computed(() => {
 function submit(): void {
     dispatching.value = true;
     stopPolling();
-    // Send payload as bytes (controller expects `payload_bytes`); 1 KB = 1000 B
-    // so the 900 KB cap maps exactly onto the controller's 900000-byte max.
-    form.transform(({ payload_kb, ...rest }) => ({
+    // Convert to the byte-based params the controller expects: payload uses
+    // decimal KB (1 KB = 1000 B) to align with SQS's 1 MiB body limit, while
+    // forced memory uses binary MB (1 MB = 1,048,576 B) to align with the
+    // worker's memory_limit.
+    form.transform(({ payload_kb, memory_mb, ...rest }) => ({
         ...rest,
         payload_bytes: Math.round((payload_kb ?? 0) * 1000),
+        memory_bytes: Math.round((memory_mb ?? 0) * 1_048_576),
     })).post('/dispatch', {
         onFinish: () => {
             dispatching.value = false;
@@ -284,6 +291,15 @@ onUnmounted(() => stopPolling());
                             type="number"
                             min="0"
                             max="1045"
+                            class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 font-mono text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                        />
+                    </div>
+                    <div class="min-w-[120px] flex-1">
+                        <label class="mb-1.5 block text-xs font-medium text-zinc-400">Memory / job (MB)</label>
+                        <input
+                            v-model.number="form.memory_mb"
+                            type="number"
+                            min="0"
                             class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 font-mono text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                         />
                     </div>
