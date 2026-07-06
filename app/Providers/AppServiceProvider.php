@@ -47,6 +47,28 @@ class AppServiceProvider extends ServiceProvider
         }
 
         $this->registerWorkerHeartbeat();
+        $this->logJobMemoryUsage();
+    }
+
+    /**
+     * Print the worker's real memory usage after each job — this is exactly the
+     * figure `queue:work --memory` checks (memory_get_usage(true)) between jobs,
+     * so it shows why the guard does or doesn't trip. Console only.
+     */
+    private function logJobMemoryUsage(): void
+    {
+        if (! $this->app->runningInConsole() || ! defined('STDERR')) {
+            return;
+        }
+
+        Event::listen(JobProcessed::class, function (JobProcessed $event): void {
+            fwrite(STDERR, sprintf(
+                "[memory] after %s: %s MB real (peak %s MB) — --memory checks the real figure\n",
+                class_basename($event->job->resolveName()),
+                round(memory_get_usage(true) / 1048576, 1),
+                round(memory_get_peak_usage(true) / 1048576, 1),
+            ));
+        });
     }
 
     private function registerWorkerHeartbeat(): void

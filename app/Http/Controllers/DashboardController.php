@@ -62,6 +62,9 @@ class DashboardController
             // memory-pressure tests. Uncapped by design — forcing a job past the
             // worker's memory_limit is a valid thing to test. Default 0 = none.
             'memory_bytes' => ['sometimes', 'integer', 'min:0'],
+            // Retain that memory across jobs (simulated leak) so it survives the
+            // worker's between-jobs memory check and can trip `queue:work --memory`.
+            'retain_memory' => ['sometimes', 'boolean'],
         ]);
 
         $batchId = Str::ulid()->toString();
@@ -96,11 +99,12 @@ class DashboardController
         $payload = $payloadBytes > 0 ? Str::random($payloadBytes) : '';
 
         $memoryBytes = (int) ($validated['memory_bytes'] ?? 0);
+        $retainMemory = (bool) ($validated['retain_memory'] ?? false);
 
-        $jobs = $metricIds->map(function (int $id) use ($validated, $payload, $memoryBytes) {
+        $jobs = $metricIds->map(function (int $id) use ($validated, $payload, $memoryBytes, $retainMemory) {
             $duration = random_int($validated['min_duration'], $validated['max_duration']);
 
-            return new DemoJob($id, $duration, $payload, $memoryBytes);
+            return new DemoJob($id, $duration, $payload, $memoryBytes, $retainMemory);
         })->all();
 
         // Uses BatchSqsQueue::bulk() which sends via sendMessageBatchAsync in parallel

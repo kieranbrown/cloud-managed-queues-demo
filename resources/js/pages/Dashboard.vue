@@ -56,6 +56,10 @@ const form = useForm({
     // Converted to bytes on submit to match the controller's `memory_bytes`
     // param. Uncapped — forcing a job past the worker's memory_limit is fair game.
     memory_mb: 0,
+    // Retain that memory across jobs (simulated leak). Required for the worker's
+    // between-jobs check to observe it and trip `queue:work --memory` (exit 12);
+    // otherwise PHP frees it the instant the job ends. Defaults on.
+    retain_memory: true,
 });
 
 const queueMeta = [
@@ -303,6 +307,17 @@ onUnmounted(() => stopPolling());
                             class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 font-mono text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                         />
                     </div>
+                    <label
+                        class="flex cursor-pointer items-center gap-2 py-2 text-xs font-medium text-zinc-400"
+                        title="Keep allocated memory for the worker's lifetime so it accumulates across jobs and can trip queue:work --memory (exit 12). Without this, PHP frees it the instant each job ends."
+                    >
+                        <input
+                            v-model="form.retain_memory"
+                            type="checkbox"
+                            class="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-blue-500 focus:ring-1 focus:ring-blue-500"
+                        />
+                        Retain (leak)
+                    </label>
                     <div class="min-w-[120px] flex-1">
                         <label class="mb-1.5 block text-xs font-medium text-zinc-400">Queue</label>
                         <select
