@@ -101,14 +101,26 @@ class DashboardController
         $memoryBytes = (int) ($validated['memory_bytes'] ?? 0);
         $retainMemory = (bool) ($validated['retain_memory'] ?? false);
 
-        $jobs = $metricIds->map(function (int $id) use ($validated, $payload, $memoryBytes, $retainMemory) {
+        $queue = $validated['queue'];
+        $isFifo = str_ends_with($queue, '.fifo');
+
+        $jobs = $metricIds->map(function (int $id) use ($validated, $payload, $memoryBytes, $retainMemory, $queue, $isFifo) {
             $duration = random_int($validated['min_duration'], $validated['max_duration']);
 
-            return new DemoJob($id, $duration, $payload, $memoryBytes, $retainMemory);
+            $job = new DemoJob($id, $duration, $payload, $memoryBytes, $retainMemory);
+
+            // SQS requires a MessageGroupId on every FIFO message. The framework
+            // only auto-derives one for string jobs (from the queue name); object
+            // jobs must set their own, so group them all under the queue name.
+            if ($isFifo) {
+                $job->onGroup($queue);
+            }
+
+            return $job;
         })->all();
 
-        // Uses BatchSqsQueue::bulk() which sends via sendMessageBatchAsync in parallel
-        Queue::connection(config('queue.default'))->bulk($jobs, '', $validated['queue']);
+        // Native SqsQueue::bulk() fans these out via SendMessageBatch.
+        Queue::connection(config('queue.default'))->bulk($jobs, '', $queue);
 
         return redirect()->route('dashboard', ['batch' => $batchId]);
     }
