@@ -27,26 +27,6 @@ class AppServiceProvider extends ServiceProvider
     {
         Date::use(CarbonImmutable::class);
 
-        // DB::prohibitDestructiveCommands(
-        //     app()->isProduction(),
-        // );
-
-        // Queue::addConnector('sqs', fn () => new BatchSqsConnector);
-
-        // On Laravel Cloud with managed queues, Cloud::bootManagedQueues() runs
-        // after BootProviders and re-registers the 'sqs' connector to wrap a
-        // vanilla SqsConnector inside its QueueConnector lifecycle wrapper —
-        // overriding the BatchSqsConnector we registered above. Extending the
-        // QueueConnector container binding lets us swap the inner connector
-        // back to BatchSqsConnector while preserving Cloud's job telemetry.
-
-        // if ($this->app->bound(QueueConnector::class)) {
-        //     $this->app->extend(
-        //         QueueConnector::class,
-        //         fn ($_, $app) => new QueueConnector(new BatchSqsConnector, $app),
-        //     );
-        // }
-
         $this->registerWorkerHeartbeat();
         $this->logJobMemoryUsage();
     }
