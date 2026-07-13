@@ -64,10 +64,10 @@ const form = useForm({
 
 const queueMeta = [
     { name: 'default', dot: 'bg-blue-400', text: 'text-blue-400' },
-    { name: 'processing', dot: 'bg-violet-400', text: 'text-violet-400' },
-    { name: 'critical', dot: 'bg-rose-400', text: 'text-rose-400' },
     { name: 'default.fifo', dot: 'bg-sky-400', text: 'text-sky-400' },
+    { name: 'processing', dot: 'bg-violet-400', text: 'text-violet-400' },
     { name: 'processing.fifo', dot: 'bg-fuchsia-400', text: 'text-fuchsia-400' },
+    { name: 'critical', dot: 'bg-rose-400', text: 'text-rose-400' },
     { name: 'critical.fifo', dot: 'bg-amber-400', text: 'text-amber-400' },
 ] as const;
 
@@ -328,10 +328,10 @@ onUnmounted(() => stopPolling());
                             class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 font-mono text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                         >
                             <option value="default">default</option>
-                            <option value="processing">processing</option>
-                            <option value="critical">critical</option>
                             <option value="default.fifo">default.fifo</option>
+                            <option value="processing">processing</option>
                             <option value="processing.fifo">processing.fifo</option>
+                            <option value="critical">critical</option>
                             <option value="critical.fifo">critical.fifo</option>
                         </select>
                     </div>

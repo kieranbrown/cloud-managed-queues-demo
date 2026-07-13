@@ -52,7 +52,7 @@ class DashboardController
             'count' => ['required', 'integer', 'min:1', 'max:10000'],
             'min_duration' => ['required', 'integer', 'min:0'],
             'max_duration' => ['required', 'integer', 'min:0'],
-            'queue' => ['required', 'string', 'in:default,processing,critical,default.fifo,processing.fifo,critical.fifo'],
+            'queue' => ['required', 'string', 'in:default,default.fifo,processing,processing.fifo,critical,critical.fifo'],
             // Optional per-job payload padding (bytes) for poller memory tests.
             // Laravel's job envelope adds a fixed ~740 B of overhead (measured),
             // and SQS's hard limit is 1,048,576 B (1 MiB), so 1,045,000 leaves a
@@ -127,10 +127,10 @@ class DashboardController
 
         $byQueue = [
             'default' => 0,
-            'processing' => 0,
-            'critical' => 0,
             'default.fifo' => 0,
+            'processing' => 0,
             'processing.fifo' => 0,
+            'critical' => 0,
             'critical.fifo' => 0,
         ];
 
