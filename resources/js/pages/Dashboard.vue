@@ -62,14 +62,25 @@ const form = useForm({
     retain_memory: true,
 });
 
-const queueMeta = [
-    { name: 'default', dot: 'bg-blue-400', text: 'text-blue-400' },
-    { name: 'default.fifo', dot: 'bg-sky-400', text: 'text-sky-400' },
-    { name: 'processing', dot: 'bg-violet-400', text: 'text-violet-400' },
-    { name: 'processing.fifo', dot: 'bg-fuchsia-400', text: 'text-fuchsia-400' },
-    { name: 'critical', dot: 'bg-rose-400', text: 'text-rose-400' },
-    { name: 'critical.fifo', dot: 'bg-amber-400', text: 'text-amber-400' },
+// Queues come in three families, each with a standard and a FIFO variant.
+// Hue encodes the family; the std/fifo row label encodes the variant. The
+// three hues are CVD-validated against the header pill's dark surface.
+const queueFamilies = [
+    { name: 'default', dot: 'bg-blue-500' },
+    { name: 'processing', dot: 'bg-teal-600' },
+    { name: 'critical', dot: 'bg-rose-500' },
 ] as const;
+
+const queueVariants = [
+    { label: 'std', suffix: '', title: 'Standard queues' },
+    { label: 'fifo', suffix: '.fifo', title: 'FIFO queues' },
+] as const;
+
+const queueNames = queueFamilies.flatMap((family) => queueVariants.map((variant) => family.name + variant.suffix));
+
+function workerCount(queue: string): number {
+    return props.stats.workersByQueue?.[queue] ?? 0;
+}
 
 const dispatching = ref(false);
 const settingsOpen = ref(false);
@@ -183,7 +194,7 @@ onUnmounted(() => stopPolling());
     <div class="min-h-screen bg-zinc-950 p-4 md:p-8">
         <div class="mx-auto max-w-7xl space-y-6">
             <!-- Header -->
-            <div class="flex items-center justify-between">
+            <div class="flex flex-wrap items-center justify-between gap-4">
                 <div>
                     <h1 class="font-mono text-2xl font-bold tracking-tight text-white">
                         Managed Queues
@@ -193,27 +204,37 @@ onUnmounted(() => stopPolling());
                         Dispatch jobs and watch Laravel Cloud scale workers to meet demand
                     </p>
                 </div>
-                <div class="flex items-center gap-4">
-                    <div class="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2">
-                        <span class="text-xs font-medium text-zinc-500">Workers</span>
-                        <div class="flex items-center gap-3">
+                <div class="flex flex-wrap items-center gap-4">
+                    <div class="flex items-stretch gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 px-4 py-2">
+                        <div class="grid grid-cols-[auto_repeat(3,auto)] items-center gap-x-4 gap-y-0.5">
+                            <span class="text-xs font-medium text-zinc-500">Workers</span>
                             <span
-                                v-for="queue in queueMeta"
-                                :key="queue.name"
-                                class="flex items-center gap-1.5"
-                                :title="`${queue.name} queue`"
+                                v-for="family in queueFamilies"
+                                :key="`head-${family.name}`"
+                                class="flex items-center justify-center gap-1.5"
                             >
-                                <span class="inline-block h-2 w-2 rounded-full" :class="queue.dot" />
-                                <span class="font-mono text-[10px] text-zinc-500">{{ queue.name }}</span>
-                                <span class="font-mono text-sm font-bold" :class="queue.text">
-                                    {{ stats.workersByQueue?.[queue.name] ?? 0 }}
-                                </span>
+                                <span class="inline-block h-2 w-2 rounded-full" :class="family.dot" />
+                                <span class="font-mono text-[10px] text-zinc-500">{{ family.name }}</span>
                             </span>
+                            <template v-for="variant in queueVariants" :key="variant.label">
+                                <span class="text-right font-mono text-[10px] text-zinc-500" :title="variant.title">
+                                    {{ variant.label }}
+                                </span>
+                                <span
+                                    v-for="family in queueFamilies"
+                                    :key="family.name + variant.suffix"
+                                    class="text-center font-mono text-sm leading-tight font-bold"
+                                    :class="workerCount(family.name + variant.suffix) > 0 ? 'text-white' : 'text-zinc-600'"
+                                    :title="`${family.name}${variant.suffix}: ${workerCount(family.name + variant.suffix)} workers`"
+                                >
+                                    {{ workerCount(family.name + variant.suffix) }}
+                                </span>
+                            </template>
                         </div>
-                        <span class="border-l border-zinc-800 pl-3 font-mono text-sm font-bold text-white">
-                            {{ stats.activeWorkers }}
-                            <span class="text-[10px] font-medium text-zinc-500">total</span>
-                        </span>
+                        <div class="flex flex-col items-center justify-center border-l border-zinc-800 pl-3">
+                            <span class="font-mono text-lg leading-none font-bold text-white">{{ stats.activeWorkers }}</span>
+                            <span class="mt-1 text-[10px] font-medium text-zinc-500">total</span>
+                        </div>
                     </div>
                     <div v-if="isActive" class="flex items-center gap-2">
                         <span class="relative flex h-3 w-3">
@@ -327,12 +348,7 @@ onUnmounted(() => stopPolling());
                             v-model="form.queue"
                             class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 font-mono text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                         >
-                            <option value="default">default</option>
-                            <option value="default.fifo">default.fifo</option>
-                            <option value="processing">processing</option>
-                            <option value="processing.fifo">processing.fifo</option>
-                            <option value="critical">critical</option>
-                            <option value="critical.fifo">critical.fifo</option>
+                            <option v-for="name in queueNames" :key="name" :value="name">{{ name }}</option>
                         </select>
                     </div>
                     <button
