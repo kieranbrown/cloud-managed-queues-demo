@@ -246,6 +246,36 @@ class BatchSqsQueue extends SqsQueue
     }
 
     /**
+     * Ensure jobs dispatched to a FIFO queue always carry a MessageGroupId.
+     *
+     * SQS requires a MessageGroupId on every FIFO message, but the base
+     * resolver only derives one from a job's own `messageGroup` property or
+     * method. Our demo jobs define neither, so the id would be null and SQS
+     * would reject the batch. Fall back to a unique per-message group so FIFO
+     * queues still fan out across workers in parallel — matching the
+     * standard-queue behaviour the dashboard demonstrates — rather than
+     * serialising every job behind a single group.
+     *
+     * @param  mixed  $job
+     * @param  string|null  $queue
+     * @param  string  $payload
+     * @param  \DateTimeInterface|\DateInterval|int|null  $delay
+     * @return array{DelaySeconds?: int, MessageGroupId?: string, MessageDeduplicationId?: string}
+     */
+    public function getQueueableOptions($job, $queue, $payload, $delay = null): array
+    {
+        $options = parent::getQueueableOptions($job, $queue, $payload, $delay);
+
+        $isFifo = str_ends_with((string) ($queue ?? $this->default), '.fifo');
+
+        if ($isFifo && empty($options['MessageGroupId'])) {
+            $options['MessageGroupId'] = Str::uuid()->toString();
+        }
+
+        return $options;
+    }
+
+    /**
      * Chunk entries to respect SQS limits: at most 10 entries per batch and a
      * serialized POST body of at most 1 MiB per batch.
      *

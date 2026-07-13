@@ -66,6 +66,9 @@ const queueMeta = [
     { name: 'default', dot: 'bg-blue-400', text: 'text-blue-400' },
     { name: 'processing', dot: 'bg-violet-400', text: 'text-violet-400' },
     { name: 'critical', dot: 'bg-rose-400', text: 'text-rose-400' },
+    { name: 'default.fifo', dot: 'bg-sky-400', text: 'text-sky-400' },
+    { name: 'processing.fifo', dot: 'bg-fuchsia-400', text: 'text-fuchsia-400' },
+    { name: 'critical.fifo', dot: 'bg-amber-400', text: 'text-amber-400' },
 ] as const;
 
 const dispatching = ref(false);
@@ -327,6 +330,9 @@ onUnmounted(() => stopPolling());
                             <option value="default">default</option>
                             <option value="processing">processing</option>
                             <option value="critical">critical</option>
+                            <option value="default.fifo">default.fifo</option>
+                            <option value="processing.fifo">processing.fifo</option>
+                            <option value="critical.fifo">critical.fifo</option>
                         </select>
                     </div>
                     <button
