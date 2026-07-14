@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "df28add138e4c7fdb729f7dcf7a867ef",
+    "content-hash": "e9aa5c8bfae55f7aedeeeb487cb1042d",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -1371,16 +1371,16 @@
         },
         {
             "name": "laravel/framework",
-            "version": "v13.19.0",
+            "version": "v13.18.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/laravel/framework.git",
-                "reference": "514502b38e11bd676ecf83b271c9452cc7500f16"
+                "reference": "7d66044819e269f05924793a6800022dc181d850"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/laravel/framework/zipball/514502b38e11bd676ecf83b271c9452cc7500f16",
-                "reference": "514502b38e11bd676ecf83b271c9452cc7500f16",
+                "url": "https://api.github.com/repos/laravel/framework/zipball/7d66044819e269f05924793a6800022dc181d850",
+                "reference": "7d66044819e269f05924793a6800022dc181d850",
                 "shasum": ""
             },
             "require": {
@@ -1591,7 +1591,7 @@
                 "issues": "https://github.com/laravel/framework/issues",
                 "source": "https://github.com/laravel/framework"
             },
-            "time": "2026-07-07T14:13:33+00:00"
+            "time": "2026-07-02T18:35:20+00:00"
         },
         {
             "name": "laravel/nightwatch",
