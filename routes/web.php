@@ -10,3 +10,9 @@ Route::post('/workers/reset', [DashboardController::class, 'resetWorkers'])->nam
 Route::post('/reset', [DashboardController::class, 'reset'])->name('reset');
 
 Route::get('/headers', fn (Request $request) => $request->headers->all())->name('headers');
+
+Route::get('/sleep', function () {
+    sleep(10);
+
+    return ['slept' => 10];
+})->name('sleep');
